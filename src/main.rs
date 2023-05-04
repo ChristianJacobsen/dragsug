@@ -1,34 +1,9 @@
+use std::sync::atomic::{AtomicUsize, Ordering};
+
+use protocol::{ErrorCode, Message, Payload};
 use tokio::io::AsyncBufReadExt;
 
-#[derive(Debug, serde::Serialize, serde::Deserialize)]
-#[serde(tag = "type", rename_all = "snake_case")]
-enum Payload {
-    Init {
-        msg_id: usize,
-        node_id: String,
-        node_ids: Vec<String>,
-    },
-    InitOk {
-        in_reply_to: usize,
-    },
-    Echo {
-        msg_id: usize,
-        echo: String,
-    },
-    EchoOk {
-        msg_id: usize,
-        in_reply_to: usize,
-        echo: String,
-    },
-}
-
-#[derive(Debug, serde::Serialize, serde::Deserialize)]
-struct Message {
-    src: String,
-    #[serde(rename = "dest")]
-    dst: String,
-    body: Payload,
-}
+mod protocol;
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
@@ -47,10 +22,10 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let mut _my_node_id: String;
     let mut _my_node_ids: Vec<String>;
 
-    while let Some(msg) = rx.recv().await {
-        eprintln!("{:?}", msg);
+    let my_msg_id = AtomicUsize::new(0);
 
-        match msg.body {
+    while let Some(msg) = rx.recv().await {
+        let reply = match msg.body {
             Payload::Init {
                 msg_id,
                 node_id,
@@ -58,33 +33,46 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             } => {
                 _my_node_id = node_id;
                 _my_node_ids = node_ids;
-                let reply = Message {
+                Message {
                     src: msg.dst,
                     dst: msg.src,
                     body: Payload::InitOk {
+                        msg_id: my_msg_id.fetch_add(1, Ordering::Relaxed),
                         in_reply_to: msg_id,
                     },
-                };
-                let reply = serde_json::to_string(&reply)?;
-                println!("{}", reply);
+                }
             }
-            Payload::Echo { msg_id, echo } => {
-                let reply = Message {
-                    src: msg.dst,
-                    dst: msg.src,
-                    body: Payload::EchoOk {
-                        msg_id,
-                        in_reply_to: msg_id,
-                        echo,
-                    },
-                };
-                let reply = serde_json::to_string(&reply)?;
-                println!("{}", reply);
-            }
-            Payload::InitOk { .. } | Payload::EchoOk { .. } => {
-                panic!("Should never receive a reply type message");
-            }
-        }
+            Payload::Echo { msg_id, echo } => Message {
+                src: msg.dst,
+                dst: msg.src,
+                body: Payload::EchoOk {
+                    msg_id: my_msg_id.fetch_add(1, Ordering::Relaxed),
+                    in_reply_to: msg_id,
+                    echo,
+                },
+            },
+            Payload::Generate { msg_id } => Message {
+                src: msg.dst,
+                dst: msg.src,
+                body: Payload::GenerateOk {
+                    msg_id: my_msg_id.fetch_add(1, Ordering::Relaxed),
+                    in_reply_to: msg_id,
+                    id: uuid::Uuid::new_v4(),
+                },
+            },
+            _ => Message {
+                src: msg.dst,
+                dst: msg.src,
+                body: Payload::Error {
+                    msg_id: my_msg_id.fetch_add(1, Ordering::Relaxed),
+                    in_reply_to: 0,
+                    code: ErrorCode::NotSupported,
+                    text: String::from("Operation not supported"),
+                },
+            },
+        };
+        let reply = serde_json::to_string(&reply).expect("the reply to be serializable");
+        println!("{}", reply);
     }
 
     Ok(())
