@@ -3,7 +3,7 @@ use serde_repr::{Deserialize_repr, Serialize_repr};
 
 #[derive(Debug, Serialize_repr, Deserialize_repr)]
 #[repr(u8)]
-pub(crate) enum ErrorCode {
+pub enum ErrorCode {
     Timeout = 0,
     NodeNotFound = 1,
     NotSupported = 10,
@@ -19,45 +19,44 @@ pub(crate) enum ErrorCode {
 
 #[derive(Debug, Serialize, Deserialize)]
 #[serde(tag = "type", rename_all = "snake_case")]
-pub(crate) enum Payload {
+pub enum Payload {
     Error {
-        msg_id: usize,
-        in_reply_to: usize,
+        in_reply_to: Option<usize>,
         code: ErrorCode,
         text: String,
     },
     Init {
-        msg_id: usize,
         node_id: String,
         node_ids: Vec<String>,
     },
     InitOk {
-        msg_id: usize,
-        in_reply_to: usize,
+        in_reply_to: Option<usize>,
     },
     Echo {
-        msg_id: usize,
         echo: String,
     },
     EchoOk {
-        msg_id: usize,
-        in_reply_to: usize,
+        in_reply_to: Option<usize>,
         echo: String,
     },
-    Generate {
-        msg_id: usize,
-    },
+    Generate {},
     GenerateOk {
-        msg_id: usize,
-        in_reply_to: usize,
+        in_reply_to: Option<usize>,
         id: uuid::Uuid,
     },
 }
 
 #[derive(Debug, Serialize, Deserialize)]
-pub(crate) struct Message {
+pub struct Body {
+    pub msg_id: Option<usize>,
+    #[serde(flatten)]
+    pub payload: Payload,
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+pub struct Message {
     pub src: String,
     #[serde(rename = "dest")]
     pub dst: String,
-    pub body: Payload,
+    pub body: Body,
 }
