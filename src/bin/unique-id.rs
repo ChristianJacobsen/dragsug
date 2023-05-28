@@ -24,9 +24,8 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                 dst: msg.src,
                 body: Body {
                     msg_id: Some(my_msg_id.fetch_add(1, Ordering::Relaxed)),
-                    payload: Payload::InitOk {
-                        in_reply_to: msg_id,
-                    },
+                    in_reply_to: msg_id,
+                    payload: Payload::InitOk {},
                 },
             },
             Payload::Generate {} => Message {
@@ -34,8 +33,8 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                 dst: msg.src,
                 body: Body {
                     msg_id: Some(my_msg_id.fetch_add(1, Ordering::Relaxed)),
+                    in_reply_to: msg_id,
                     payload: Payload::GenerateOk {
-                        in_reply_to: msg_id,
                         id: uuid::Uuid::new_v4(),
                     },
                 },
@@ -45,8 +44,8 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                 dst: msg.src,
                 body: Body {
                     msg_id: Some(my_msg_id.fetch_add(1, Ordering::Relaxed)),
+                    in_reply_to: msg_id,
                     payload: Payload::Error {
-                        in_reply_to: msg_id,
                         code: ErrorCode::NotSupported,
                         text: String::from("Operation not supported"),
                     },

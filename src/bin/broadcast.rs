@@ -1,4 +1,7 @@
-use std::sync::atomic::{AtomicUsize, Ordering};
+use std::{
+    collections::HashSet,
+    sync::atomic::{AtomicUsize, Ordering},
+};
 
 use dragsug::{
     protocol::{Body, ErrorCode, Message, Payload},
@@ -10,6 +13,8 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let (tx, mut rx) = tokio::sync::mpsc::channel(32);
 
     setup_input_loop(tx);
+
+    let mut my_messages = HashSet::new();
 
     let my_msg_id = AtomicUsize::new(0);
 
@@ -28,13 +33,37 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                     payload: Payload::InitOk {},
                 },
             },
-            Payload::Echo { echo } => Message {
+            Payload::Broadcast { message } => {
+                my_messages.insert(message);
+
+                Message {
+                    src: msg.dst,
+                    dst: msg.src,
+                    body: Body {
+                        msg_id: Some(my_msg_id.fetch_add(1, Ordering::Relaxed)),
+                        in_reply_to: msg_id,
+                        payload: Payload::BroadcastOk {},
+                    },
+                }
+            }
+            Payload::Read {} => Message {
                 src: msg.dst,
                 dst: msg.src,
                 body: Body {
                     msg_id: Some(my_msg_id.fetch_add(1, Ordering::Relaxed)),
                     in_reply_to: msg_id,
-                    payload: Payload::EchoOk { echo },
+                    payload: Payload::ReadOk {
+                        messages: my_messages.iter().copied().collect(),
+                    },
+                },
+            },
+            Payload::Topology { topology: _ } => Message {
+                src: msg.dst,
+                dst: msg.src,
+                body: Body {
+                    msg_id: Some(my_msg_id.fetch_add(1, Ordering::Relaxed)),
+                    in_reply_to: msg_id,
+                    payload: Payload::TopologyOk {},
                 },
             },
             _ => Message {

@@ -1,3 +1,5 @@
+use std::collections::HashMap;
+
 use serde::{Deserialize, Serialize};
 use serde_repr::{Deserialize_repr, Serialize_repr};
 
@@ -21,7 +23,6 @@ pub enum ErrorCode {
 #[serde(tag = "type", rename_all = "snake_case")]
 pub enum Payload {
     Error {
-        in_reply_to: Option<usize>,
         code: ErrorCode,
         text: String,
     },
@@ -29,26 +30,35 @@ pub enum Payload {
         node_id: String,
         node_ids: Vec<String>,
     },
-    InitOk {
-        in_reply_to: Option<usize>,
+    InitOk {},
+    Broadcast {
+        message: usize,
     },
+    BroadcastOk {},
     Echo {
         echo: String,
     },
     EchoOk {
-        in_reply_to: Option<usize>,
         echo: String,
     },
     Generate {},
     GenerateOk {
-        in_reply_to: Option<usize>,
         id: uuid::Uuid,
     },
+    Read {},
+    ReadOk {
+        messages: Vec<usize>,
+    },
+    Topology {
+        topology: HashMap<String, Vec<String>>,
+    },
+    TopologyOk {},
 }
 
 #[derive(Debug, Serialize, Deserialize)]
 pub struct Body {
     pub msg_id: Option<usize>,
+    pub in_reply_to: Option<usize>,
     #[serde(flatten)]
     pub payload: Payload,
 }
