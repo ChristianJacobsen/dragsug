@@ -15,6 +15,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     while let Some(msg) = rx.recv().await {
         let msg_id = msg.body.msg_id;
+
         let reply = match msg.body.payload {
             Payload::Init {
                 node_id: _,

@@ -45,6 +45,7 @@ pub enum Payload {
     GenerateOk {
         id: uuid::Uuid,
     },
+    Gossip {},
     Read {},
     ReadOk {
         messages: Vec<usize>,
